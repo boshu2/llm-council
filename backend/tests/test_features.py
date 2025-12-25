@@ -59,18 +59,20 @@ class TestFeature2ConfigurableTimeout:
     """Feature 2: Configurable timeout for model queries"""
 
     def test_default_timeout(self):
-        """Should have default timeout of 120 seconds"""
-        from backend.openrouter import query_model
-        # Check function signature has default timeout
+        """Should have default timeout configured"""
+        from backend.llm_client import query_model
+        from backend.config import DEFAULT_TIMEOUT
+        # Check function signature has timeout parameter
         import inspect
         sig = inspect.signature(query_model)
         timeout_param = sig.parameters.get('timeout')
         assert timeout_param is not None
-        assert timeout_param.default == 120.0
+        # Default is None (uses config value)
+        assert DEFAULT_TIMEOUT == 120.0
 
     def test_custom_timeout_parameter(self):
         """Should accept custom timeout parameter"""
-        from backend.openrouter import query_model
+        from backend.llm_client import query_model
         import inspect
         sig = inspect.signature(query_model)
         assert 'timeout' in sig.parameters
@@ -84,7 +86,7 @@ class TestFeature3HealthCheck:
         from backend.health import check_api_health
         result = check_api_health()
         assert 'status' in result
-        assert 'api_key_configured' in result
+        assert 'litellm_configured' in result
         assert 'timestamp' in result
 
 
@@ -112,7 +114,7 @@ class TestFeature5RetryLogic:
     @pytest.mark.asyncio
     async def test_retry_on_failure(self):
         """Should retry on transient failures"""
-        from backend.openrouter import query_model_with_retry
+        from backend.llm_client import query_model_with_retry
 
         call_count = 0
         async def mock_query(*args, **kwargs):
@@ -122,7 +124,7 @@ class TestFeature5RetryLogic:
                 return None
             return {'content': 'success'}
 
-        with patch('backend.openrouter.query_model', mock_query):
+        with patch('backend.llm_client.query_model', mock_query):
             result = await query_model_with_retry('test/model', [], max_retries=3)
             assert result is not None
             assert call_count == 3
@@ -623,11 +625,11 @@ class TestFeature33ContentFiltering:
 class TestFeature34APIKeyValidation:
     """Feature 34: API key validation"""
 
-    def test_api_key_configured(self):
-        """Should check if API key is configured"""
-        from backend.health import is_api_key_configured
+    def test_litellm_configured(self):
+        """Should check if LiteLLM is configured"""
+        from backend.health import is_litellm_configured
         # Just verify the function exists and returns bool
-        result = is_api_key_configured()
+        result = is_litellm_configured()
         assert isinstance(result, bool)
 
 

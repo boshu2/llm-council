@@ -1,26 +1,32 @@
-"""Configuration for the LLM Council."""
+"""Configuration for the LLM Council with LiteLLM backend."""
 
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# OpenRouter API key
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# LiteLLM proxy configuration
+LITELLM_API_URL = os.getenv("LITELLM_API_URL", "http://localhost:4000/v1/chat/completions")
+LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")  # Optional, depends on your LiteLLM setup
 
-# Council members - list of OpenRouter model identifiers
+# Council members - self-hosted models via LiteLLM
+# Update these to match your deployed models
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
+    "ollama/llama3.1",
+    "ollama/mistral",
+    "ollama/codellama",
 ]
 
 # Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
-
-# OpenRouter API endpoint
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+# Can be any model from your LiteLLM config
+CHAIRMAN_MODEL = "ollama/llama3.1"
 
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"
+
+# Model query timeout (seconds)
+DEFAULT_TIMEOUT = 120.0
+
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0

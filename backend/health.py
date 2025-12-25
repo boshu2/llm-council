@@ -1,8 +1,8 @@
 """Health check and system status utilities for LLM Council."""
 
 from datetime import datetime
-from typing import Dict, Any, List
-from .config import OPENROUTER_API_KEY, COUNCIL_MODELS, CHAIRMAN_MODEL
+from typing import Dict, Any
+from .config import LITELLM_API_URL, LITELLM_API_KEY, COUNCIL_MODELS, CHAIRMAN_MODEL
 
 
 def check_api_health() -> Dict[str, Any]:
@@ -14,21 +14,21 @@ def check_api_health() -> Dict[str, Any]:
     """
     return {
         "status": "healthy",
-        "api_key_configured": is_api_key_configured(),
+        "litellm_configured": is_litellm_configured(),
         "timestamp": datetime.utcnow().isoformat(),
         "council_models_count": len(COUNCIL_MODELS),
         "chairman_model": CHAIRMAN_MODEL
     }
 
 
-def is_api_key_configured() -> bool:
+def is_litellm_configured() -> bool:
     """
-    Check if the OpenRouter API key is configured.
+    Check if LiteLLM is configured.
 
     Returns:
-        True if API key is present and non-empty
+        True if LiteLLM URL is configured
     """
-    return bool(OPENROUTER_API_KEY and len(OPENROUTER_API_KEY) > 0)
+    return bool(LITELLM_API_URL and len(LITELLM_API_URL) > 0)
 
 
 def get_available_models() -> Dict[str, Any]:
@@ -55,5 +55,6 @@ def get_system_status() -> Dict[str, Any]:
     return {
         "api_health": check_api_health(),
         "models": get_available_models(),
+        "litellm_url": LITELLM_API_URL,
         "version": "1.0.0"
     }

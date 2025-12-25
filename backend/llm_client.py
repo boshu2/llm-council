@@ -1,31 +1,43 @@
-"""OpenRouter API client for making LLM requests."""
+"""LLM client for making requests via LiteLLM proxy."""
 
 import httpx
 import asyncio
 from typing import List, Dict, Any, Optional
-from .config import OPENROUTER_API_KEY, OPENROUTER_API_URL
+from .config import (
+    LITELLM_API_URL,
+    LITELLM_API_KEY,
+    DEFAULT_TIMEOUT,
+    MAX_RETRIES,
+    RETRY_BASE_DELAY,
+)
 
 
 async def query_model(
     model: str,
     messages: List[Dict[str, str]],
-    timeout: float = 120.0
+    timeout: float = None
 ) -> Optional[Dict[str, Any]]:
     """
-    Query a single model via OpenRouter API.
+    Query a single model via LiteLLM proxy.
 
     Args:
-        model: OpenRouter model identifier (e.g., "openai/gpt-4o")
+        model: Model identifier (e.g., "ollama/llama3.1")
         messages: List of message dicts with 'role' and 'content'
         timeout: Request timeout in seconds
 
     Returns:
         Response dict with 'content' and optional 'reasoning_details', or None if failed
     """
+    if timeout is None:
+        timeout = DEFAULT_TIMEOUT
+
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
+
+    # Add API key if configured
+    if LITELLM_API_KEY:
+        headers["Authorization"] = f"Bearer {LITELLM_API_KEY}"
 
     payload = {
         "model": model,
@@ -35,7 +47,7 @@ async def query_model(
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
-                OPENROUTER_API_URL,
+                LITELLM_API_URL,
                 headers=headers,
                 json=payload
             )
@@ -62,37 +74,29 @@ async def query_models_parallel(
     Query multiple models in parallel.
 
     Args:
-        models: List of OpenRouter model identifiers
+        models: List of model identifiers
         messages: List of message dicts to send to each model
 
     Returns:
         Dict mapping model identifier to response dict (or None if failed)
     """
-    import asyncio
-
-    # Create tasks for all models
     tasks = [query_model(model, messages) for model in models]
-
-    # Wait for all to complete
     responses = await asyncio.gather(*tasks)
-
-    # Map models to their responses
     return {model: response for model, response in zip(models, responses)}
 
 
-# Feature 5: Retry logic for failed model queries
 async def query_model_with_retry(
     model: str,
     messages: List[Dict[str, str]],
-    max_retries: int = 3,
-    base_delay: float = 1.0,
-    timeout: float = 120.0
+    max_retries: int = None,
+    base_delay: float = None,
+    timeout: float = None
 ) -> Optional[Dict[str, Any]]:
     """
     Query a model with automatic retry on failure.
 
     Args:
-        model: OpenRouter model identifier
+        model: Model identifier
         messages: List of message dicts
         max_retries: Maximum number of retry attempts
         base_delay: Base delay between retries (exponential backoff)
@@ -101,6 +105,13 @@ async def query_model_with_retry(
     Returns:
         Response dict or None if all retries failed
     """
+    if max_retries is None:
+        max_retries = MAX_RETRIES
+    if base_delay is None:
+        base_delay = RETRY_BASE_DELAY
+    if timeout is None:
+        timeout = DEFAULT_TIMEOUT
+
     last_error = None
 
     for attempt in range(max_retries):
@@ -125,19 +136,22 @@ async def query_model_with_retry(
 async def query_models_parallel_with_retry(
     models: List[str],
     messages: List[Dict[str, str]],
-    max_retries: int = 3
+    max_retries: int = None
 ) -> Dict[str, Optional[Dict[str, Any]]]:
     """
     Query multiple models in parallel with retry logic.
 
     Args:
-        models: List of OpenRouter model identifiers
+        models: List of model identifiers
         messages: List of message dicts
         max_retries: Maximum retries per model
 
     Returns:
         Dict mapping model to response
     """
+    if max_retries is None:
+        max_retries = MAX_RETRIES
+
     tasks = [query_model_with_retry(model, messages, max_retries) for model in models]
     responses = await asyncio.gather(*tasks)
     return {model: response for model, response in zip(models, responses)}

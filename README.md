@@ -2,17 +2,19 @@
 
 ![llmcouncil](header.jpg)
 
-The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+A 3-stage deliberation system where multiple self-hosted LLMs collaboratively answer questions. Uses LiteLLM as the routing layer to your self-hosted models, with Open WebUI as the frontend.
 
-In a bit more detail, here is what happens when you submit a query:
+## How It Works
 
-1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
-2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
-3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and compiles them into a single final answer that is presented to the user.
+1. **Stage 1: First opinions**. Your query is sent to all council LLMs individually. Responses are collected in parallel.
+2. **Stage 2: Review**. Each LLM reviews and ranks the others' responses (anonymized to prevent bias).
+3. **Stage 3: Final response**. The Chairman LLM synthesizes all responses and rankings into a final answer.
 
-## Vibe Code Alert
+## Architecture
 
-This project was 99% vibe coded as a fun Saturday hack because I wanted to explore and evaluate a number of LLMs side by side in the process of [reading books together with LLMs](https://x.com/karpathy/status/1990577951671509438). It's nice and useful to see multiple responses side by side, and also the cross-opinions of all LLMs on each other's outputs. I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
+```
+Open WebUI → LLM Council API → LiteLLM Proxy → Self-hosted Models (Ollama, vLLM, etc.)
+```
 
 ## Setup
 
@@ -25,46 +27,51 @@ The project uses [uv](https://docs.astral.sh/uv/) for project management.
 uv sync
 ```
 
-**Frontend:**
+**Frontend (optional - use Open WebUI instead):**
 ```bash
 cd frontend
 npm install
 cd ..
 ```
 
-### 2. Configure API Key
+### 2. Configure LiteLLM
 
 Create a `.env` file in the project root:
 
 ```bash
-OPENROUTER_API_KEY=sk-or-v1-...
+LITELLM_API_URL=http://localhost:4000/v1/chat/completions
+LITELLM_API_KEY=your-optional-api-key
 ```
 
-Get your API key at [openrouter.ai](https://openrouter.ai/). Make sure to purchase the credits you need, or sign up for automatic top up.
+### 3. Configure Models
 
-### 3. Configure Models (Optional)
-
-Edit `backend/config.py` to customize the council:
+Edit `backend/config.py` to match your self-hosted models:
 
 ```python
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
+    "ollama/llama3.1",
+    "ollama/mistral",
+    "ollama/codellama",
 ]
 
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+CHAIRMAN_MODEL = "ollama/llama3.1"
 ```
 
 ## Running the Application
 
-**Option 1: Use the start script**
+### Option 1: With Open WebUI (Recommended)
+
+1. Start the LLM Council backend:
 ```bash
-./start.sh
+uv run python -m backend.main
 ```
 
-**Option 2: Run manually**
+2. Configure Open WebUI to use LLM Council as an OpenAI-compatible endpoint:
+   - URL: `http://localhost:8001/v1`
+   - Select "llm-council" as the model for multi-model deliberation
+   - Or select individual models for direct queries
+
+### Option 2: With Built-in Frontend
 
 Terminal 1 (Backend):
 ```bash
@@ -79,9 +86,20 @@ npm run dev
 
 Then open http://localhost:5173 in your browser.
 
+## OpenAI-Compatible API
+
+The backend exposes OpenAI-compatible endpoints for Open WebUI integration:
+
+- `GET /v1/models` - List available models (includes "llm-council" + individual models)
+- `POST /v1/chat/completions` - Chat completions (streaming supported)
+
+When you select "llm-council" as the model, it runs the full 3-stage deliberation process.
+
 ## Tech Stack
 
-- **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
-- **Frontend:** React + Vite, react-markdown for rendering
+- **Backend:** FastAPI (Python 3.10+), async httpx, LiteLLM-compatible
+- **Frontend:** Open WebUI (recommended) or React + Vite
+- **LLM Routing:** LiteLLM proxy
+- **Models:** Self-hosted via Ollama, vLLM, or any LiteLLM-supported backend
 - **Storage:** JSON files in `data/conversations/`
 - **Package Management:** uv for Python, npm for JavaScript
